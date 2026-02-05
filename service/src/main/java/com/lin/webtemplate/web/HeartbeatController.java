@@ -2,8 +2,16 @@ package com.lin.webtemplate.web;
 
 import java.time.Instant;
 
+import com.lin.webtemplate.web.response.Result;
+import lombok.Data;
+import org.springframework.boot.actuate.health.HealthComponent;
+import org.springframework.boot.actuate.health.HealthEndpoint;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping(("/health"))
 public class HeartbeatController {
 
     private final HealthEndpoint healthEndpoint;
@@ -13,20 +21,23 @@ public class HeartbeatController {
     }
 
     @GetMapping("/heartbeat")
-    public ResponseEntity<Result<HeartbeatData>> heartbeat() {
+    public Result<HeartbeatData> heartbeat() {
         HealthComponent health = healthEndpoint.health();
         String status = health.getStatus().getCode();
         HeartbeatData data = new HeartbeatData(status, Instant.now().toEpochMilli());
 
         if ("UP".equals(status)) {
-            return ResponseEntity.ok(Result.ok(data));
+            return Result.ok(data);
         }
 
-        // Align with common probe semantics: non-UP maps to 503.
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(Result.fail(1, "NOT_UP: " + status, data));
+        // We keep HTTP status as 200 and express health via Result.code/message.
+        return Result.fail(1, "NOT_UP: " + status, data);
     }
 
-    public record HeartbeatData(String status, long timestamp) {
+    @Data
+    public static class HeartbeatData {
+
+        private final String status;
+        private final long timestamp;
     }
 }
